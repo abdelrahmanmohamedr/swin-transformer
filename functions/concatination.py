@@ -1,58 +1,71 @@
-# -----------------------------
-# 1) Convert tensor -> nested lists
-#    (innermost is a list of channels)
-# -----------------------------
-x_list = x_api.tolist()  # nested python lists: [B][H][W][C]
+import numpy as np
 
-# -----------------------------
-# 2) Helper: extract patches from nested-list with same layout as API slicing
-# -----------------------------
-def extract_patch_list(x_list, start_h, start_w):
-    B = len(x_list)
-    H = len(x_list[0])
-    W = len(x_list[0][0])
-    C = len(x_list[0][0][0])
-    outH = H // 2
-    outW = W // 2
-    # preallocate [B][outH][outW][C]
-    out = [[[ [0]*C for _ in range(outW)] for _ in range(outH)] for _ in range(B)]
-    for b in range(B):
-        for i in range(start_h, H, 2):
-            oi = i // 2
-            for j in range(start_w, W, 2):
-                oj = j // 2
-                # x_list[b][i][j] is a list of length C (channels)
-                out[b][oi][oj] = x_list[b][i][j]
-    return out
+def manual_concatenate(arrays, axis=0):
+    """
+    Manually concatenates a sequence of NumPy arrays along a specified axis 
+    (equivalent to np.concatenate(arrays, axis)).
+    
+    Args:
+        arrays (list of np.ndarray): The arrays to concatenate. Must have same shape
+                                     in all dimensions except the concatenation axis.
+        axis (int): The axis along which to concatenate. Default is 0.
+        
+    Returns:
+        np.ndarray: The concatenated array.
+    """
+    if not arrays:
+        raise ValueError("Input 'arrays' list cannot be empty.")
+        
+    # Get the number of arrays and their shape/rank
+    N = len(arrays)
+    rank = arrays[0].ndim
+    
+    # Handle negative axis index
+    if axis < 0:
+        axis = rank + axis
+        
+    if not (0 <= axis < rank):
+        raise ValueError(f"Axis {axis} is out of bounds for array with rank {rank}.")
 
-x0_n = extract_patch_list(x_list, 0, 0)  # top-left
-x1_n = extract_patch_list(x_list, 1, 0)  # bottom-left
-x2_n = extract_patch_list(x_list, 0, 1)  # top-right
-x3_n = extract_patch_list(x_list, 1, 1)  # bottom-right
+    # 1. Determine the output shape
+    output_shape = list(arrays[0].shape)
+    
+    # Sum the sizes of the concatenation axis
+    concat_size = sum(arr.shape[axis] for arr in arrays)
+    output_shape[axis] = concat_size
+    
+    # 2. Initialize the output array
+    output = np.empty(output_shape, dtype=arrays[0].dtype)
+    
+    # 3. Copy data piece by piece
+    current_index = 0
+    
+    # Create the slicing object for the copy operation
+    # E.g., if axis=0, the slice is [start:end, :, :, ...]
+    # If axis=1, the slice is [:, start:end, :, ...]
+    
+    for arr in arrays:
+        # Determine the slice range for the current array along the concatenation axis
+        arr_size = arr.shape[axis]
+        
+        # Create a list of slices for all dimensions
+        slices = [slice(None)] * rank
+        slices[axis] = slice(current_index, current_index + arr_size)
+        
+        # Convert list of slices to a tuple for numpy indexing
+        slice_tuple = tuple(slices)
+        
+        # Copy the current array into the corresponding segment of the output array
+        output[slice_tuple] = arr
+        
+        current_index += arr_size
+        
+    return output
 
-# -----------------------------
-# 3) Manual concat along last dim (pure indexing, no append/extend)
-# -----------------------------
-def manual_cat_lastdim_pure(tensors):
-    # tensors: list of nested lists each shaped [B][H2][W2][C]
-    B = len(tensors[0])
-    H2 = len(tensors[0][0])
-    W2 = len(tensors[0][0][0])
-    C = len(tensors[0][0][0][0])
-    T = len(tensors)
-    outC = C * T
-    # allocate result [B][H2][W2][outC]
-    res = [[[ [0]*outC for _ in range(W2)] for _ in range(H2)] for _ in range(B)]
-    for b in range(B):
-        for h in range(H2):
-            for w in range(W2):
-                offset = 0
-                for t_idx in range(T):
-                    ch_list = tensors[t_idx][b][h][w]
-                    for c in range(len(ch_list)):
-                        res[b][h][w][offset + c] = ch_list[c]
-                    offset += len(ch_list)
-    return res
-
-manual_res = manual_cat_lastdim_pure([x0_n, x1_n, x2_n, x3_n])
-
+# Example usage (for testing):
+# a = np.array([[1, 2], [3, 4]])
+# b = np.array([[5, 6]])
+# c = manual_concatenate([a, b], axis=0) # Concatenate rows
+# d = manual_concatenate([a, b.T], axis=1) # Concatenate columns
+# print("Concatenated Axis 0:\n", c)
+# print("Concatenated Axis 1:\n", d)
