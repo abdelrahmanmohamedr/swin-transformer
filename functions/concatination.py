@@ -1,6 +1,6 @@
 import numpy as np
 
-def manual_concatenate(arrays, axis=0):
+def concatenate(arrays, axis=0):
     """
     Manually concatenates a sequence of NumPy arrays along a specified axis 
     (equivalent to np.concatenate(arrays, axis)).
@@ -69,3 +69,4 @@ def manual_concatenate(arrays, axis=0):
 # d = manual_concatenate([a, b.T], axis=1) # Concatenate columns
 # print("Concatenated Axis 0:\n", c)
 # print("Concatenated Axis 1:\n", d)
+
