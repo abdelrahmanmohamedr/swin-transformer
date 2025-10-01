@@ -1,42 +1,42 @@
-import torch 
-def meshgrid (Wh, Ww):
-    coords_h = list(range(Wh))  # row indices
-    coords_w = list(range(Ww))  # col indices
+import numpy as np
 
-    # Initialize empty grids
-    grid_h = []
-    grid_w = []
+def meshgrid(x, y):
+    """
+    Manually creates 2D coordinate matrices from 1D coordinate vectors 
+    (equivalent to np.meshgrid(x, y, indexing='xy')).
 
-    # Fill grids manually
-    for i in coords_h:   # loop over rows
-        row_h = []
-        row_w = []
-        for j in coords_w:  # loop over cols
-            row_h.append(i)  # row index
-            row_w.append(j)  # col index
-        grid_h.append(row_h)
-        grid_w.append(row_w)
+    Args:
+        x (np.ndarray): 1D array of length Nx (e.g., width coordinates).
+        y (np.ndarray): 1D array of length Ny (e.g., height coordinates).
 
-    # Stack along new "0th" dimension [2, Wh, Ww]
-    stacked = [grid_h, grid_w]
-    return stacked
+    Returns:
+        tuple (X, Y): 
+            X (np.ndarray): Shape (Ny, Nx), where x values are repeated vertically.
+            Y (np.ndarray): Shape (Ny, Nx), where y values are repeated horizontally.
+    """
+    Ny = len(y)
+    Nx = len(x)
 
-Wh, Ww = 4, 4
-coords_man = manual_meshgrid_stack(Wh, Ww)
-# API (reference)
-coords_h = torch.arange(Wh)
-coords_w = torch.arange(Ww)
-coords_api = torch.stack(torch.meshgrid([coords_h, coords_w], indexing="ij"))
+    # 1. Create the X matrix: Repeat the x-vector (row) Ny times (downward)
+    #    The inner dimension is the x-dimension (Nx).
+    X = np.zeros((Ny, Nx), dtype=x.dtype)
+    for i in range(Ny):
+        # Assign the entire x-vector to the current row i
+        X[i, :] = x
+    
+    # 2. Create the Y matrix: Repeat the y-vector (column) Nx times (across)
+    #    The inner dimension is the x-dimension (Nx).
+    Y = np.zeros((Ny, Nx), dtype=y.dtype)
+    for j in range(Nx):
+        # Assign the entire y-vector to the current column j
+        # y[:, None] creates a column vector [Ny, 1] which broadcasts easily
+        Y[:, j] = y
+        
+    return X, Y
 
-print ("The manual case")
-print("Shape = [2, Wh, Ww] ->", len(coords_man), len(coords_man[0]), len(coords_man[0][0]))
-print (coords_man)
-print("\nAPI result:")
-print(coords_api)
-print("Shape =", coords_api.shape)
-
-# Convert manual to tensor for comparison
-coords_manual_tensor = torch.tensor(coords_man)
-print("Manual result as a tensor:")
-print(coords_manual_tensor)
-print("Shape =", coords_manual_tensor.shape)
+# Example usage (for testing):
+# x_coords = np.array([0, 1, 2])
+# y_coords = np.array([10, 20])
+# X_grid, Y_grid = manual_meshgrid(x_coords, y_coords)
+# print("X_grid:\n", X_grid)
+# print("Y_grid:\n", Y_grid)
