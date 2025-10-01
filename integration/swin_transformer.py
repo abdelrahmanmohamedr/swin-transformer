@@ -3,14 +3,13 @@ import torch.nn as nn
 from timm.models.layers import trunc_normal_
 from integration import BasicLayer, PatchMerging
 from integration.patch_embed import PatchEmbed
-from functions.adaptive_avg_pool import adaptive_avg_pool
+from functions.adaptive_avg_pool import AdaptiveAvgPool1d
 from functions.flatten import custom_flatten
 from functions.constant_ import constant_
-from functions.LayerNorm import LayerNorm
+from functions.LayerNorm_v4 import LayerNorm
 from functions.linspace import linspace_list
 from functions.ModuleList import ModuleList
 from functions.Parameter import Parameter
-
 
 class SwinTransformer(nn.Module):
     r""" Swin Transformer
@@ -43,7 +42,7 @@ class SwinTransformer(nn.Module):
                  embed_dim=96, depths=[2, 2, 6, 2], num_heads=[3, 6, 12, 24],
                  window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=LayerNorm, ape=False, patch_norm=True,
+                 norm_layer=LayerNorm, ape=False, patch_norm=True, # Modified LayerNorm to nn.LayerNorm
                  use_checkpoint=False, fused_window_process=False, **kwargs):
         super().__init__()
 
@@ -58,7 +57,7 @@ class SwinTransformer(nn.Module):
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed(
             img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
-            norm_layer=norm_layer if self.patch_norm else None)
+            norm_layer=LayerNorm if self.patch_norm else None) # Modified LayerNorm to nn.LayerNorm
         num_patches = self.patch_embed.num_patches
         patches_resolution = self.patch_embed.patches_resolution
         self.patches_resolution = patches_resolution
@@ -71,10 +70,10 @@ class SwinTransformer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         # stochastic depth
-        dpr = [x.item() for x in linspace_list(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule      # edit
+        dpr = [x.item() for x in torch.tensor(linspace_list(0, drop_path_rate, sum(depths)))]  # stochastic depth decay rule
 
         # build layers
-        self.layers = ModuleList()                                                                  # edit
+        self.layers = ModuleList()                                                                  # Modified ModuleList to nn.ModuleList
         for i_layer in range(self.num_layers):
             layer = BasicLayer(dim=int(embed_dim * 2 ** i_layer),
                                input_resolution=(patches_resolution[0] // (2 ** i_layer),
@@ -86,26 +85,26 @@ class SwinTransformer(nn.Module):
                                qkv_bias=qkv_bias, qk_scale=qk_scale,
                                drop=drop_rate, attn_drop=attn_drop_rate,
                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                               norm_layer=norm_layer,
+                               norm_layer=LayerNorm, # Modified LayerNorm to nn.LayerNorm
                                downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,
                                use_checkpoint=use_checkpoint,
                                fused_window_process=fused_window_process)
             self.layers.append(layer)
 
-        self.norm = norm_layer(self.num_features)
-        self.avgpool = adaptive_avg_pool(1)                                                                              # edit 
-        self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
+        self.norm = LayerNorm(self.num_features) # Modified LayerNorm to nn.LayerNorm
+        self.avgpool = AdaptiveAvgPool1d(1)
+        self.head = ExplicitLinear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
 
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
+        if isinstance(m, ExplicitLinear):
             trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                constant_(m.bias, 0)                                # edit there might be an error 
-        elif isinstance(m, LayerNorm): 
-            constant_(m.bias, 0)                                    # edit there might be an error
-            constant_(m.weight, 1.0)                                # edit there might be an error
+            if isinstance(m, ExplicitLinear) and m.bias is not None:
+                constant_(list(m.bias), 0)
+        elif isinstance(m, LayerNorm): # Modified LayerNorm to nn.LayerNorm
+            constant_(list(m.bias), 0)
+            constant_(list(m.weight), 1.0)
 
     @torch.jit.ignore
     def no_weight_decay(self):
@@ -125,8 +124,8 @@ class SwinTransformer(nn.Module):
             x = layer(x)
 
         x = self.norm(x)  # B L C
-        x = self.avgpool(x.transpose(1, 2))  # B C 1
-        x = custom_flatten(x, 1)                                                            # edit
+        x = torch.tensor(self.avgpool(x.transpose(1, 2).tolist()))  # B C 1
+        x = custom_flatten(x, 1)
         return x
 
     def forward(self, x):
