@@ -36,7 +36,7 @@ def constant_(tensor: Tensor, val: float) -> Tensor:
 # ----------------------------------------------------------------------------------------------------------
 import numpy as np
 
-def constant_(array: np.ndarray, val: float) -> np.ndarray:
+def constant_(array, val):
     """
     Fill the given NumPy array with the constant value 'val'.
 
@@ -47,7 +47,7 @@ def constant_(array: np.ndarray, val: float) -> np.ndarray:
     Returns:
         np.ndarray: the same array filled with val
     """
-    array[:] = val   # inplace fill
+    array[:] = [val] * len(array)   # inplace fill
     return array
 # ==========================================================================================================
 
