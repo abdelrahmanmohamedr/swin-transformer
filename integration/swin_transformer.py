@@ -10,6 +10,7 @@ from functions.LayerNorm_v4 import LayerNorm
 from functions.linspace import linspace_list
 from functions.ModuleList import ModuleList
 from functions.Parameter import Parameter
+from functions.linear_class import ExplicitLinear
 
 class SwinTransformer(nn.Module):
     r""" Swin Transformer
