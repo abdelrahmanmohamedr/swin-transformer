@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
-import conv2d
+from conv2d import MyConv2d as ManualConv2d
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 # ============================================================================
@@ -60,7 +61,7 @@ class PatchEmbed(nn.Module):
 # ============================================================================
 
 class PatchEmbedManual(nn.Module):
-    r""" Image to Patch Embedding
+    r""" Image to Patch Embedding with Manual Conv2d
 
     Args:
         img_size (int): Image size.  Default: 224.
@@ -68,9 +69,12 @@ class PatchEmbedManual(nn.Module):
         in_chans (int): Number of input image channels. Default: 3.
         embed_dim (int): Number of linear projection output channels. Default: 96.
         norm_layer (nn.Module, optional): Normalization layer. Default: None
+        weight (np.ndarray, optional): Pre-extracted conv weights
+        bias (np.ndarray, optional): Pre-extracted conv bias
     """
 
-    def __init__(self, img_size=224, patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
+    def __init__(self, img_size=224, patch_size=4, in_chans=3, embed_dim=96, 
+                 norm_layer=None, weight=None, bias=None):
         super().__init__()
         img_size = to_2tuple(img_size)
         patch_size = to_2tuple(patch_size)
@@ -83,7 +87,18 @@ class PatchEmbedManual(nn.Module):
         self.in_chans = in_chans
         self.embed_dim = embed_dim
 
-        self.proj = conv2d.ManualConv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
+        # Create ManualConv2d with the provided weights
+        # ManualConv2d handles weight initialization internally
+        self.proj = ManualConv2d(
+            in_chans, 
+            embed_dim, 
+            kernel_size=patch_size, 
+            stride=patch_size, 
+            weight=weight, 
+            bias=bias,
+            bias_condition=True  # PatchEmbed always has bias
+        )
+        
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
         else:
@@ -94,7 +109,10 @@ class PatchEmbedManual(nn.Module):
         # FIXME look at relaxing size constraints
         assert H == self.img_size[0] and W == self.img_size[1], \
             f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
+        
+        # ManualConv2d returns a PyTorch tensor
         x = self.proj(x).flatten(2).transpose(1, 2)  # B Ph*Pw C
+        
         if self.norm is not None:
             x = self.norm(x)
         return x
@@ -151,7 +169,7 @@ def compare_patch_embed():
     )
     
     # Copy weights from original to manual to ensure same parameters
-    print("Copying weights from nn.Conv2d to ManualConv2d...")
+    print("Copying weights from nn.Conv2d to Manual..")
     patch_embed_manual.proj.weight.data = patch_embed_original.proj.weight.data.clone()
     patch_embed_manual.proj.bias.data = patch_embed_original.proj.bias.data.clone()
     print("✓ Weights copied\n")
