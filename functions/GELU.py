@@ -2,41 +2,15 @@ import torch
 import torch.nn as nn
 import numpy as np
 import math
+from scipy.special import erf
 
 class GELU:
-    """
-    Custom implementation of GELU (Gaussian Error Linear Unit) activation function.
-    
-    GELU is defined as: GELU(x) = x * Φ(x)
-    where Φ(x) is the cumulative distribution function of the standard normal distribution.
-    
-    There are two common approximations:
-    1. Exact: GELU(x) = 0.5 * x * (1 + erf(x / sqrt(2)))
-    2. Tanh approximation: GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
-    """
-    
     def __init__(self, approximate='none'):
-        """
-        Initialize GELU activation.
-        
-        Args:
-            approximate (str): 'none' for exact GELU, 'tanh' for tanh approximation
-        """
         if approximate not in ['none', 'tanh']:
             raise ValueError("approximate must be 'none' or 'tanh'")
         self.approximate = approximate
-    
+
     def __call__(self, x):
-        """
-        Apply GELU activation to input.
-        
-        Args:
-            x: Input array (numpy array or torch tensor)
-            
-        Returns:
-            Array with GELU applied
-        """
-        # Convert to numpy if torch tensor
         is_torch = isinstance(x, torch.Tensor)
         if is_torch:
             device = x.device
@@ -44,49 +18,19 @@ class GELU:
             x = x.cpu().numpy()
         else:
             x = np.array(x, dtype=np.float32)
-        
+
         if self.approximate == 'none':
-            # Exact GELU using error function
-            # GELU(x) = 0.5 * x * (1 + erf(x / sqrt(2)))
-            result = 0.5 * x * (1.0 + self._erf(x / np.sqrt(2.0)))
+            # scipy.special.erf is highly accurate and vectorized
+            result = 0.5 * x * (1.0 + erf(x / np.sqrt(2.0)))
         else:
-            # Tanh approximation
-            # GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
             sqrt_2_over_pi = np.sqrt(2.0 / np.pi)
             inner = sqrt_2_over_pi * (x + 0.044715 * np.power(x, 3))
             result = 0.5 * x * (1.0 + np.tanh(inner))
-        
-        # Convert back to torch if input was torch
+
         if is_torch:
             result = torch.from_numpy(result).to(device=device, dtype=dtype)
         
         return result
-    
-    @staticmethod
-    def _erf(x):
-        """
-        Compute error function using numpy.
-        
-        erf(x) = (2/sqrt(π)) * integral from 0 to x of exp(-t^2) dt
-        """
-        # Abramowitz and Stegun approximation (accurate to 1.5e-7)
-        # This is what many implementations use
-        sign = np.sign(x)
-        x = np.abs(x)
-        
-        # Constants
-        a1 = 0.254829592
-        a2 = -0.284496736
-        a3 = 1.421413741
-        a4 = -1.453152027
-        a5 = 1.061405429
-        p = 0.3275911
-        
-        # Formula
-        t = 1.0 / (1.0 + p * x)
-        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-x * x)
-        
-        return sign * y
 
 
 # ============================================================================

@@ -31,7 +31,12 @@ class Softmax:
             Array with softmax applied
         """
         # Convert to numpy array if needed
-        x = np.array(x, dtype=np.float64)
+        if isinstance(x, torch.Tensor):
+            x = x.detach().cpu().numpy()
+        
+        # Ensure it's a numpy array
+        if not isinstance(x, np.ndarray):
+            x = np.array(x, dtype=np.float32)
         
         # Subtract max for numerical stability (prevents overflow)
         # This doesn't change the result due to softmax properties

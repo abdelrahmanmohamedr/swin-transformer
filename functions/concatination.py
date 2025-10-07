@@ -61,12 +61,3 @@ def concatenate(arrays, axis=0):
         current_index += arr_size
         
     return output
-
-# Example usage (for testing):
-# a = np.array([[1, 2], [3, 4]])
-# b = np.array([[5, 6]])
-# c = manual_concatenate([a, b], axis=0) # Concatenate rows
-# d = manual_concatenate([a, b.T], axis=1) # Concatenate columns
-# print("Concatenated Axis 0:\n", c)
-# print("Concatenated Axis 1:\n", d)
-
