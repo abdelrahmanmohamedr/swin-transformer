@@ -168,7 +168,7 @@ import torch.nn as nn
 
 def test_batchnorm1d_inference(batch_size=8, num_features=16, length=None, eps=1e-5):
     """
-    Compare PyTorch BatchNorm1d (eval mode) vs. custom BatchNorm1dInference.
+    #Compare PyTorch BatchNorm1d (eval mode) vs. custom BatchNorm1dInference.
     """
 
     # Create input: either (N, C) or (N, C, L)
