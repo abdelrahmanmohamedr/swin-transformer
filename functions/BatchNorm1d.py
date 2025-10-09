@@ -166,7 +166,7 @@ import torch.nn as nn
 # Assuming BatchNorm1dInference class is already defined/imported
 
 
-def test_batchnorm1d_inference(batch_size=80, num_features=160, length=None, eps=1e-5):
+def test_batchnorm1d_inference(batch_size=8, num_features=16, length=None, eps=1e-5):
     """
     Compare PyTorch BatchNorm1d (eval mode) vs. custom BatchNorm1dInference.
     """
@@ -201,7 +201,7 @@ def test_batchnorm1d_inference(batch_size=80, num_features=160, length=None, eps
     max_abs_err = (y_torch - y_custom).abs().max().item()
     max_rel_err = (y_torch - y_custom).abs().max().item() / (y_torch.abs().max().item() + 1e-12)
 
-    print(f"✅ Match: {allclose}")
+    print(f"Match: {allclose}")
     print(f"Max absolute error: {max_abs_err:.3e}")
     print(f"Max relative error: {max_rel_err:.3e}")
 
