@@ -1,4 +1,4 @@
-import numpy as np
+1import numpy as np
 import torch
 import torch.nn as nn
 import math
@@ -116,4 +116,5 @@ if __name__ == "__main__":
 
     print("\n" + "="*60)
     print("✓ All implementations match PyTorch!")
+
     print("="*60)
