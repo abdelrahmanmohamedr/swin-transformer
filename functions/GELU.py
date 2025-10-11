@@ -31,8 +31,55 @@ class GELU:
             result = torch.from_numpy(result).to(device=device, dtype=dtype)
         
         return result
-
-
+# ============================================================================
+# Base-2 Custom GELU
+# ============================================================================
+class CustomGELU(nn.Module):
+    """
+    Custom GELU implementation using the transformation:
+    h(x) = sqrt(2/π) * (x + 0.044715 * x^3)
+    g(x) = x * e^h(x) / (e^h(x) + e^-h(x))
+         = x / (1 + 2^(-2*log_e(2)*h(x)))
+    """
+    def __init__(self):
+        super(CustomGELU, self).__init__()
+        self.sqrt_2_over_pi = np.sqrt(2.0 / np.pi)
+        self.coef = 0.044715
+        
+    def forward(self, x):
+        # Compute h(x) = sqrt(2/π) * (x + 0.044715 * x^3)
+        h_x = self.sqrt_2_over_pi * (x + self.coef * torch.pow(x, 3))
+        
+        # Compute g(x) = x / (1 + 2^(-2*log_2(e)*h(x)))
+        # Note: log_2(e) = 1/ln(2) ≈ 1.4427
+        log2_e = 1.0 / np.log(2)
+        #log2_e = 1.442695
+        exponent = -2 * log2_e * h_x
+        gelu_x = x / (1 + torch.pow(2, exponent))
+        
+        return gelu_x
+# ============================================================================
+# RELU
+# ============================================================================
+class ReLU(nn.Module):
+    """
+    Custom implementation of ReLU (Rectified Linear Unit) activation function.
+    ReLU(x) = max(0, x)
+    """
+    def __init__(self):
+        super(ReLU, self).__init__()
+    
+    def forward(self, x):
+        """
+        Forward pass of ReLU activation.
+        
+        Args:
+            x: Input tensor (can be quantized int8 or float)
+            
+        Returns:
+            Output tensor with ReLU applied element-wise
+        """
+        return torch.maximum(torch.zeros_like(x), x)
 # ============================================================================
 # COMPREHENSIVE COMPARISON WITH PYTORCH
 # ============================================================================
@@ -211,4 +258,5 @@ def gelu_properties():
 
 if __name__ == "__main__":
     compare_gelu()
+
     gelu_properties()
